@@ -143,16 +143,6 @@ class TagGenerator:
         print("preprocessed_documents", preprocessed_documents)
 
 
-    def generate(self, documents, root=None):
-        self.preprocess_documents(documents)
-        document_abstract_tags = self.get_document_abstract_tags()
-        set_summary_tags = self.get_set_summary_tags(root)
-
-        document_abstract_tags = self.unstem(document_abstract_tags)
-        set_summary_tags = self.unstem([set_summary_tags])[0]
-
-        return document_abstract_tags, set_summary_tags
-
 
     def get_document_abstract_tags(self):
         document_abstract_tags = []
@@ -173,7 +163,7 @@ class TagGenerator:
 
         return document_abstract_tags
 
-    def method_1(self, root):
+    def get_set_summary_tags_method_1(self, root):
         U, S, VH = np.linalg.svd(self.doc_terms_matrix, full_matrices=False)
 
         print(U.shape, S.shape, VH.shape)
@@ -244,21 +234,46 @@ class TagGenerator:
 
         return set_summary_tags
 
-    def method_2(self):
+    def get_set_summary_tags_method_2(self):
         set_summary_tags = []
 
-    def get_set_summary_tags(self, root=None):
+    def get_set_summary_tags(self, method, root):
         set_summary_tags = []
 
-        if (root is not None) and (root.strip() != ""):
+        if method == 1:
             if root not in list(itertools.chain.from_iterable(self.stem_dict.values())):
                 print(root, self.stem_dict.values())
-                print("Root term \"%s\" not found. Generating set summary tags based on method 2." % str(root))
-                return self.get_set_summary_tags()
+                raise Exception("Root term \"%s\" not found." % str(root))
 
-            return self.method_1(root)
+            return self.get_set_summary_tags_method_1(root)
+        elif method == 2:
+            return self.get_set_summary_tags_method_2()
         else:
-            return self.method_2()
+            raise Exception("\"method\" must be 1 or 2.")
+
+    def get_differential_tags(self, method, document_abstract_tags, set_summary_tags):
+        if method == 1:
+            return document_abstract_tags
+        elif method == 2:
+            document_differential_tags = []
+
+            for document_abstract_tag_list in document_differential_tags:
+                document_differential_tags.append([term for term in document_abstract_tag_list if term not in set_summary_tags])
+        else:
+            raise Exception("\"method\" must be 1 or 2.")
+
+
+    def generate(self, documents, method=2, root=None):
+        self.preprocess_documents(documents)
+        document_abstract_tags = self.get_document_abstract_tags()
+        set_summary_tags = self.get_set_summary_tags(method, root)
+        document_differential_tags = self.get_differential_tags(method, document_abstract_tags, set_summary_tags)
+
+        document_abstract_tags = self.unstem(document_abstract_tags)
+        set_summary_tags = self.unstem([set_summary_tags])[0]
+        document_differential_tags = self.unstem(document_abstract_tags)
+
+        return document_abstract_tags, set_summary_tags, document_differential_tags
 
 
 #stemmed, words, inverted_list = TagGenerator().preprocess("It was a warm morning, with no clouds in the sky, when a thunder struck Guilherme's head. How was that possible? That's simple. It was just Thor saying hello. And, yes, Thor is simply a troll and is always on some cloud, waiting for an opportunity to perform some pranks. He is a trolly prankster.")
