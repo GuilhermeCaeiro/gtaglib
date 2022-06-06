@@ -270,7 +270,7 @@ class TagGenerator:
         elif method == 2:
             document_differential_tags = []
 
-            for document_abstract_tag_list in document_differential_tags:
+            for document_abstract_tag_list in document_abstract_tags:
                 document_differential_tags.append([term for term in document_abstract_tag_list if term not in set_summary_tags])
 
             return document_differential_tags
@@ -286,7 +286,7 @@ class TagGenerator:
 
         document_abstract_tags = self.unstem(document_abstract_tags)
         set_summary_tags = self.unstem([set_summary_tags])[0]
-        document_differential_tags = self.unstem(document_abstract_tags)
+        document_differential_tags = self.unstem(document_differential_tags)
 
         return document_abstract_tags, set_summary_tags, document_differential_tags
 
