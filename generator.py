@@ -29,6 +29,7 @@ class TagGenerator:
         self.vectorizer = None
         self.doc_terms_matrix = None
         self.stem_dict = {}
+        self.occurrence_count = {}
 
     def get_stemmer(self):
         if self.stemmer is None:
@@ -61,6 +62,14 @@ class TagGenerator:
     def get_synonyms(self, word):
         pass
 
+    def add_occurence_count(self, words):
+        words = set(words) # counts each word only once per document
+        for word in words:
+            if word not in self.occurrence_count:
+                self.occurrence_count[word] = 1
+            else:
+                self.occurrence_count[word] += 1
+
     def preprocess(self, document):
         stemmer = self.get_stemmer()
         text = document.lower()
@@ -82,6 +91,8 @@ class TagGenerator:
 
         # inverted list to help keeping track of which words gave origin to which stems
         self.generate_stem_dict(stemmed_words, words)
+
+        self.add_occurence_count(stemmed_words)
 
         return stemmed_words, words
 
@@ -235,7 +246,9 @@ class TagGenerator:
         return set_summary_tags
 
     def get_set_summary_tags_method_2(self):
-        set_summary_tags = []
+        print("get_set_summary_tags_method_2", self.occurrence_count)
+        set_summary_tags = sorted(self.occurrence_count, key=self.occurrence_count.get, reverse=True)
+        return set_summary_tags[:min(self.semantic_field_size, len(set_summary_tags))]
 
     def get_set_summary_tags(self, method, root):
         set_summary_tags = []
@@ -259,6 +272,8 @@ class TagGenerator:
 
             for document_abstract_tag_list in document_differential_tags:
                 document_differential_tags.append([term for term in document_abstract_tag_list if term not in set_summary_tags])
+
+            return document_differential_tags
         else:
             raise Exception("\"method\" must be 1 or 2.")
 
@@ -280,9 +295,14 @@ class TagGenerator:
 #print(stemmed)
 #print(words)
 #print(inverted_list)
-TagGenerator().generate([
+a, b, c = TagGenerator().generate([
     "It was a warm morning, with no clouds in the sky, when a thunder struck Guilherme's head. How was that possible? That's simple. It was just Thor saying hello. And, yes, Thor is simply a troll and is always on some cloud, waiting for an opportunity to perform some pranks. He is a trolly prankster.",
     "Guilherme is a post grad student at Federal University of Rio de Janeiro (UFRJ). He currently lives in Praça Seca, Rio de Janeiro, and is 30 years old.",
     " Earth. The world we live in. It is our home, and the home of Guilherme Caeiro de Mattos, an post grad student who lives in country called Brazil. Specifically in a city called Rio de Janeiro, that is hot as hell.",
     "It is a saying commonly told among practitioners of martial arts. It says \"健全なる魂は健全なる精神と健全なる肉体に宿る\"."
-], "rio")
+], 1, "rio")
+
+
+print(a)
+print(b)
+print(c)
