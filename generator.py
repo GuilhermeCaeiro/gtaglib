@@ -248,7 +248,7 @@ class TagGenerator:
     def get_set_summary_tags_method_2(self):
         print("get_set_summary_tags_method_2", self.occurrence_count)
         set_summary_tags = sorted(self.occurrence_count, key=self.occurrence_count.get, reverse=True)
-        return set_summary_tags[:min(self.semantic_field_size, len(set_summary_tags))]
+        return set_summary_tags[:10]#[:min(self.semantic_field_size, len(set_summary_tags))]
 
     def get_set_summary_tags(self, method, root):
         set_summary_tags = []
