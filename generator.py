@@ -51,7 +51,7 @@ class TagGenerator:
         else:
             raise Exception("Invalid stemmer: \"%s\". Valid values are 'porter', 'snowball', 'wordnet' or None." % (str(self.stemmer)))
 
-    def stem_word(self, word): # TO DO check if bigrams wont cause trouble
+    def stem_word(self, word, include=True): # TO DO check if bigrams wont cause trouble
         stemmed_word = None
         if self.stemmer is None:
             stemmed_word = word
@@ -60,7 +60,8 @@ class TagGenerator:
         else:
             stemmed_word = self.stemmer_object.stem(word)
 
-        self.update_stem_dict([stemmed_word], [word])
+        if include:
+            self.update_stem_dict([stemmed_word], [word])
 
         return stemmed_word
 
@@ -71,6 +72,14 @@ class TagGenerator:
             if tag.startswith("N"):
                 nouns.append(word)
         return nouns
+
+    def get_synonyms(self, word, num_synonyms = 0): 
+        synonyms = wn.synsets(word, wn.NOUN) # restricted to nouns
+        synonyms = set([synonym.name().split(".")[0].replace("_", " ") for synonym in synonyms])
+        #return random.sample(list(lemmas), round(percent_synonyms * len(lemmas)))
+        if num_synonyms == 0:
+            return list(synonyms)
+        return random.sample(list(synonyms), min(num_synonyms,len(synonyms)))
 
     def get_hypernyms(self, word, num_hypernyms = 0): 
         synonyms = wn.synsets(word, wn.NOUN) # restricted to nouns
@@ -237,7 +246,7 @@ class TagGenerator:
         candidates = term_correlation[current_term][term_correlation[current_term] > 0]
         
         if len(candidates) == 0:
-            print("No candidates")
+            #print("No candidates")
             return [root]
 
         candidates = pd.DataFrame(candidates).sort_values(by=current_term, axis=0, ascending=False)
@@ -276,7 +285,7 @@ class TagGenerator:
         return set_summary_tags
 
     def get_set_summary_tags_method_2(self, document_abstract_tags):
-        print("get_set_summary_tags_method_2")
+        #print("get_set_summary_tags_method_2")
         occurrence_count = {}
 
         for document_tags in document_abstract_tags:
@@ -287,24 +296,24 @@ class TagGenerator:
                     occurrence_count[tag] += 1
 
         set_summary_tags = sorted(occurrence_count, key=occurrence_count.get, reverse=True)
-        print("get_set_summary_tags_method_2", set_summary_tags)
-        print("get_set_summary_tags_method_2", occurrence_count)
+        #print("get_set_summary_tags_method_2", set_summary_tags)
+        #print("get_set_summary_tags_method_2", occurrence_count)
         return set_summary_tags[:min(self.semantic_field_size, len(set_summary_tags))]
 
-    def expand_document_tags(self, document_abstract_tags, max_hypernyms):
-        print("expand_document_tags")
+    def expand_document_tags(self, document_abstract_tags, max_additions):
+        #print("expand_document_tags")
         document_abstract_tags_with_additions = []
         for document_tags in document_abstract_tags:
-            print("document_tags", document_tags)
-            hypernyms = [self.get_hypernyms(self.reverse_stem(tag), max_hypernyms) for tag in document_tags] 
-            hypernyms = list(itertools.chain.from_iterable(hypernyms))
-            hypernyms = [self.stem_word(word) for word in hypernyms] # to avoid problems while unstemming everything
+            #print("document_tags", document_tags)
+            additions = [self.get_synonyms(self.reverse_stem(tag), max_additions) for tag in document_tags] 
+            additions = list(itertools.chain.from_iterable(additions))
+            additions = [self.stem_word(word) for word in additions] # to avoid problems while unstemming everything
             
             document_abstract_tags_with_additions.append(
-                list(set(document_tags + hypernyms))
+                list(set(document_tags + additions))
             )
 
-        print("expand_document_tags", document_abstract_tags_with_additions)
+        #print("expand_document_tags", document_abstract_tags_with_additions)
 
         return document_abstract_tags_with_additions
 
@@ -314,9 +323,11 @@ class TagGenerator:
         set_summary_tags = []
 
         if method == 1:
-            if root not in list(itertools.chain.from_iterable(self.stem_dict.values())):
+            root = self.stem_word(root, include=False)
+            if root not in self.stem_dict:#list(itertools.chain.from_iterable(self.stem_dict.values())):
                 #print(root, self.stem_dict.values())
-                raise Exception("Root term \"%s\" not found." % str(root))
+                #raise Exception("Root term \"%s\" not found." % str(root))
+                return []
 
             return self.get_set_summary_tags_method_1(root)
         elif method == 2:
@@ -338,20 +349,20 @@ class TagGenerator:
             raise Exception("\"method\" must be 1 or 2.")
 
 
-    def generate(self, documents, method=2, root=None, expand_doc_tags = False, max_hypernyms = 0):
+    def generate(self, documents, method=2, root=None, expand_doc_tags = False, max_additions = 0):
         self.preprocess_documents(documents)
         document_abstract_tags = self.get_document_abstract_tags()
-        print("document_abstract_tags", document_abstract_tags)
+        #print("document_abstract_tags", document_abstract_tags)
 
         if (method == 2) and expand_doc_tags:
-            print("expand_doc_tags")
-            if max_hypernyms < 0:
-                raise Exception("'max_hypernyms' can't be negative")
+            #print("expand_doc_tags")
+            if max_additions < 0:
+                raise Exception("'max_additions' can't be negative")
 
-            document_abstract_tags = self.expand_document_tags(document_abstract_tags, max_hypernyms)
+            document_abstract_tags = self.expand_document_tags(document_abstract_tags, max_additions)
             
         set_summary_tags = self.get_set_summary_tags(method, root, document_abstract_tags)
-        print("set_summary_tags", set_summary_tags)
+        #print("set_summary_tags", set_summary_tags)
 
         document_differential_tags = self.get_differential_tags(method, document_abstract_tags, set_summary_tags)
 
@@ -359,10 +370,12 @@ class TagGenerator:
         set_summary_tags = self.unstem([set_summary_tags])[0]
         document_differential_tags = self.unstem(document_differential_tags)
 
+        #print(self.stem_dict)
+
         return document_abstract_tags, set_summary_tags, document_differential_tags
 
     def retrieve_word_frequency(self, document_tags, document_number):
-        print("retrieve_word_frequency", document_tags)
+        #print("retrieve_word_frequency", document_tags)
         document_word_frequency = {}
         expansion_tags = []
         max_frequency = 0
@@ -461,7 +474,7 @@ class TagGenerator:
             outputdir="", 
             max_tags = 100, 
             expand_doc_tags = False, 
-            max_hypernyms = 0, 
+            max_additions = 0, 
             wordcloud_object = None
         ):
 
@@ -470,7 +483,7 @@ class TagGenerator:
             method, 
             root,
             expand_doc_tags = expand_doc_tags,
-            max_hypernyms = max_hypernyms
+            max_additions = max_additions
         )
 
         if generate_atc: # atc = abstract tag cloud
@@ -479,9 +492,9 @@ class TagGenerator:
             self.create_tag_cloud_image(document_abstract_tags, "document_abstract_tags", outputdir, max_tags, word_cloud = wordcloud_object)
             #print("generate_tag_cloud document_abstract_tags", document_abstract_tags)
 
-        print("set_summary_tags")
+        #print("set_summary_tags")
         set_summary_tags = self.retrieve_set_word_frequency(set_summary_tags)
-        print("document_differential_tags")
+        #print("document_differential_tags")
         document_differential_tags = self.retrieve_word_frequency_per_document(document_differential_tags)
         #print("generate_tag_cloud set_summary_tags", set_summary_tags)
         #print("generate_tag_cloud document_differential_tags", document_differential_tags)
