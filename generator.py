@@ -53,8 +53,18 @@ class TagGenerator:
         else:
             raise Exception("Invalid stemmer: \"%s\". Valid values are 'porter', 'snowball', 'wordnet' or None." % (str(self.stemmer)))
 
-    def stem_word(self, word, include=True): # TO DO check if bigrams wont cause trouble
+    def stem_word(self, word, include=True, split_join_ngram=False): # TO DO check if bigrams wont cause trouble
         stemmed_word = None
+
+        if split_join_ngram:
+            stemmed_word = ""
+
+            for part in word.split(" "):
+                stemmed_word += self.stem_word(part, include = False) + " "
+
+            return stemmed_word.strip()
+
+        
         if self.stemmer is None:
             stemmed_word = word
         elif self.stemmer == "wordnet": # it is a lemmatizer, not a stemmer
@@ -216,7 +226,9 @@ class TagGenerator:
         return document_abstract_tags
 
     def get_set_summary_tags_method_1(self, root):
+        #print("get_set_summary_tags_method_1", self.tf_matrix.shape)
         U, S, VH = np.linalg.svd(self.tf_matrix, full_matrices=False)
+        #print("decomposed")
 
         #print(U.shape, S.shape, VH.shape)
 
@@ -235,9 +247,12 @@ class TagGenerator:
         #print(self.tf_matrix.shape, reconstructed_matrix.shape)
 
         #print(reconstructed_matrix)
+        #print("matrix reconstructed")
 
         term_correlation = reconstructed_matrix.corr()
         #print(term_correlation)
+
+       #print("correlation calculated")
 
         current_term = self.stem_word(root.strip().lower())
 
@@ -283,6 +298,8 @@ class TagGenerator:
         #        current_term = next_term
         #    else:
         #        break
+
+        #print("end get_set_summary_tags_method_1")
 
         return set_summary_tags
 
@@ -394,7 +411,7 @@ class TagGenerator:
                 expansion_tags.append(tag)
                 continue
 
-            frequency = document_line[self.stem_word(tag)]
+            frequency = document_line[tag]
             document_word_frequency[tag] = frequency
 
         max_frequency = max(document_word_frequency.values()) if len(document_word_frequency) > 0 else 1.0
@@ -405,7 +422,7 @@ class TagGenerator:
             document_word_frequency[tag] = document_word_frequency[tag]/max_frequency
 
         for tag in expansion_tags:
-            document_word_frequency[tag] = min_frequency/max_frequency
+            document_word_frequency[tag] = max(min_frequency/max_frequency, 0.000001)
 
         return document_word_frequency
 
@@ -433,7 +450,7 @@ class TagGenerator:
 
         for tag in tags:
             if tag in self.doc_terms_matrix.columns:
-                frequency = self.doc_terms_matrix[self.stem_word(tag)].sum()
+                frequency = self.doc_terms_matrix[tag].sum()
                 results[tag] = frequency
             else:
                 expansion_tags.append(tag)
@@ -445,7 +462,7 @@ class TagGenerator:
             results[tag] = results[tag]/max_frequency
 
         for tag in expansion_tags:
-            results[tag] = min_frequency/max_frequency
+            results[tag] = max(min_frequency/max_frequency, 0.000001)
 
         return results
 
@@ -480,6 +497,7 @@ class TagGenerator:
             wordcloud_object = None
         ):
 
+        #print("1")
         document_abstract_tags, set_summary_tags, document_differential_tags = self.generate(
             documents, 
             method, 
@@ -488,21 +506,31 @@ class TagGenerator:
             max_additions = max_additions
         )
 
+        #print("2")
         if generate_atc: # atc = abstract tag cloud
             #print("document_abstract_tags")
             document_abstract_tags = self.retrieve_word_frequency_per_document(document_abstract_tags)
             self.create_tag_cloud_image(document_abstract_tags, "document_abstract_tags", outputdir, max_tags, word_cloud = wordcloud_object)
             #print("generate_tag_cloud document_abstract_tags", document_abstract_tags)
 
+        #print("3")
         #print("set_summary_tags")
         set_summary_tags = self.retrieve_set_word_frequency(set_summary_tags)
         #print("document_differential_tags")
+        #print("4")
         document_differential_tags = self.retrieve_word_frequency_per_document(document_differential_tags)
         #print("generate_tag_cloud set_summary_tags", set_summary_tags)
         #print("generate_tag_cloud document_differential_tags", document_differential_tags)
 
+        #print("5")
         self.create_tag_cloud_image([set_summary_tags], "set_summary_tags", outputdir, max_tags, word_cloud = wordcloud_object)
+        #print("6")
         self.create_tag_cloud_image(document_differential_tags, "document_differential_tags", outputdir, max_tags, word_cloud = wordcloud_object)
+
+        if generate_atc:
+            return document_abstract_tags, set_summary_tags, document_differential_tags
+        else:
+            return set_summary_tags, document_differential_tags
 
 
 
@@ -533,3 +561,27 @@ class TagGenerator:
 #    " Earth. The world we live in. It is our home, and the home of Guilherme Caeiro de Mattos, an post grad student who lives in country called Brazil. Specifically in a city called Rio de Janeiro, that is hot as hell.",
 #    "It is a saying commonly told among practitioners of martial arts. It says \"健全なる魂は健全なる精神と健全なる肉体に宿る\"."
 #], 1, "rio", expand_doc_tags=True, max_hypernyms = 1,outputdir="outputs")#, wordcloud_object = WordCloud(width=1000, height=1000, max_words=10))
+
+
+
+
+#dataset = [
+#    "It was a warm morning, with no clouds in the sky, when a thunder struck Guilherme's head. How was that possible? That's simple. It was just Thor saying hello. And, yes, Thor is simply a troll and is always on some cloud, waiting for an opportunity to perform some pranks. He is a trolly prankster.",
+#    "Guilherme is a post grad student at Federal University of Rio de Janeiro (UFRJ). He currently lives in Praça Seca, Rio de Janeiro, and is 30 years old.",
+#    " Earth. The world we live in. It is our home, and the home of Guilherme Caeiro de Mattos, an post grad student who lives in country called Brazil. Specifically in a city called Rio de Janeiro, that is hot as hell.",
+#    "It is a saying commonly told among practitioners of martial arts. It says \"健全なる魂は健全なる精神と健全なる肉体に宿る\"."
+#]
+
+#test = TagGenerator(
+#    semantic_field_size=40, 
+#    stemmer = "porter", 
+#    generate_bigrams=True,
+#    use_tfidf=True
+#)
+#test.generate_tag_cloud(
+#    dataset, 
+#    2, 
+#    root="", 
+#    expand_doc_tags=True, 
+#    max_additions = 5
+#)
