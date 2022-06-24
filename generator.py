@@ -21,6 +21,7 @@ class TagGenerator:
             use_tfidf=True, 
             generate_bigrams = False,
             semantic_field_size=40, 
+            k=40,
             seed=0): # unused
 
         self.only_nouns = only_nouns
@@ -30,6 +31,7 @@ class TagGenerator:
         self.generate_bigrams = generate_bigrams
         self.semantic_field_size = semantic_field_size
         self.seed = seed
+        self.k = k
         self.vectorizer = None
         self.doc_terms_matrix = None
         self.tf_matrix = None
@@ -224,7 +226,7 @@ class TagGenerator:
         #print("VH\n", VH)
 
         S_reduced = np.zeros((len(S), len(S)), dtype=float)
-        S_tmp = np.diag(S[:self.semantic_field_size]) # if semantic_field_size > len(S), the slicing will consider up to len(S), without raising an error
+        S_tmp = np.diag(S[:self.k]) # if k > len(S), the slicing will consider up to len(S), without raising an error
         S_reduced[:len(S_tmp), :len(S_tmp)] = S_tmp
         #print(S.shape, S_tmp.shape, S_reduced.shape, S_reduced)
 
@@ -380,7 +382,7 @@ class TagGenerator:
         expansion_tags = []
         max_frequency = 0
         min_frequency = 0
-        document_line = self.tf_matrix.iloc[document_number]
+        document_line = self.doc_terms_matrix.iloc[document_number]
 
         #print("retrieve_word_frequency", document_tags, document_number)
 
@@ -388,7 +390,7 @@ class TagGenerator:
             return {}
 
         for tag in document_tags:
-            if tag not in self.tf_matrix.columns:
+            if tag not in self.doc_terms_matrix.columns:
                 expansion_tags.append(tag)
                 continue
 
@@ -430,8 +432,8 @@ class TagGenerator:
             return {}
 
         for tag in tags:
-            if tag in self.tf_matrix.columns:
-                frequency = self.tf_matrix[self.stem_word(tag)].sum()
+            if tag in self.doc_terms_matrix.columns:
+                frequency = self.doc_terms_matrix[self.stem_word(tag)].sum()
                 results[tag] = frequency
             else:
                 expansion_tags.append(tag)
