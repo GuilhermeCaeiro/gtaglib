@@ -22,7 +22,7 @@ class TagGenerator:
             generate_bigrams = False,
             semantic_field_size=40, 
             k=40,
-            seed=0): # unused
+            seed=0):
 
         self.only_nouns = only_nouns
         self.to_ascii = to_ascii
@@ -79,7 +79,7 @@ class TagGenerator:
 
     def get_nouns(self, words):
         nouns = []
-        #print(pos_tag(words))
+
         for word, tag in pos_tag(words):
             if tag.startswith("N"):
                 nouns.append(word)
@@ -88,7 +88,7 @@ class TagGenerator:
     def get_synonyms(self, word, num_synonyms = 0): 
         synonyms = wn.synsets(word, wn.NOUN) # restricted to nouns
         synonyms = set([synonym.name().split(".")[0].replace("_", " ") for synonym in synonyms])
-        #return random.sample(list(lemmas), round(percent_synonyms * len(lemmas)))
+
         if num_synonyms == 0:
             return list(synonyms)
         return random.sample(list(synonyms), min(num_synonyms,len(synonyms)))
@@ -97,7 +97,7 @@ class TagGenerator:
         synonyms = wn.synsets(word, wn.NOUN) # restricted to nouns
         hypernyms_synsets = list(itertools.chain.from_iterable([synonym.hypernyms() for synonym in synonyms]))
         hypernyms = set([hypernym.name().split(".")[0].replace("_", " ") for hypernym in hypernyms_synsets])
-        #return random.sample(list(lemmas), round(percent_synonyms * len(lemmas)))
+
         if num_hypernyms == 0:
             return list(hypernyms)
         return random.sample(list(hypernyms), min(num_hypernyms,len(hypernyms)))
@@ -148,7 +148,6 @@ class TagGenerator:
 
 
     def reverse_stem(self, stemmed_word):
-        #print("reverse_stem", stemmed_word)
         splitted_word = stemmed_word.split(" ")
 
         if stemmed_word in self.stem_dict:
@@ -166,7 +165,6 @@ class TagGenerator:
             raise Exception("Attemp to reverse unknown stem \"%s\". Did this stem really originate from a word present in the original set of documents?" % (stemmed_word))
 
     def unstem(self, documents):
-        #print("unstem", documents)
         unstemmed_words = []
         for document_words in documents:
              unstemmed_words.append([self.reverse_stem(stemmed_word) for stemmed_word in document_words])
@@ -196,14 +194,6 @@ class TagGenerator:
         else:
             self.doc_terms_matrix = self.tf_matrix
 
-        
-        #print(self.tf_matrix.shape)
-        #print(self.tf_matrix)
-        #print(self.tfidf_matrix)
-        #print(self.vectorizer.get_feature_names_out())
-        #print(self.vectorizer.vocabulary_)
-        #print("preprocessed_documents", preprocessed_documents)
-
 
 
     def get_document_abstract_tags(self):
@@ -211,54 +201,27 @@ class TagGenerator:
 
         # obtaining document abstract tags
         for index, row in self.doc_terms_matrix.iterrows():                         # doc_terms matrix is documents (lines) x terms (columns)
-            #print(row, type(row))
-            #print("index", index)
-            #abstract_tags = pd.DataFrame(self.doc_terms_matrix.iloc[index,:]).T.sort_values(by=index, axis=1, ascending=False)
             abstract_tags = pd.DataFrame(row).T.sort_values(by=index, axis=1, ascending=False)
-            #print(abstract_tags)
             num_non_zero = int(abstract_tags[abstract_tags.columns].gt(0).sum(axis=1))
-            #print(num_non_zero)
             abstract_tags = abstract_tags.columns[:min(num_non_zero, self.semantic_field_size)].to_list()
-            #print(abstract_tags)
 
             document_abstract_tags.append(abstract_tags)
 
         return document_abstract_tags
 
     def get_set_summary_tags_method_1(self, root):
-        #print("get_set_summary_tags_method_1", self.tf_matrix.shape)
         U, S, VH = np.linalg.svd(self.tf_matrix, full_matrices=False)
-        #print("decomposed")
-
-        #print(U.shape, S.shape, VH.shape)
-
-        #print("U\n", U)
-        #print("S\n", S)
-        #print(np.diag(S))
-        #print("VH\n", VH)
 
         S_reduced = np.zeros((len(S), len(S)), dtype=float)
         S_tmp = np.diag(S[:self.k]) # if k > len(S), the slicing will consider up to len(S), without raising an error
         S_reduced[:len(S_tmp), :len(S_tmp)] = S_tmp
-        #print(S.shape, S_tmp.shape, S_reduced.shape, S_reduced)
 
 
         reconstructed_matrix = pd.DataFrame(U @ S_reduced @ VH, columns=self.tf_matrix.columns) # "@" multiplies np arrays as matrices 
-        #print(self.tf_matrix.shape, reconstructed_matrix.shape)
-
-        #print(reconstructed_matrix)
-        #print("matrix reconstructed")
 
         term_correlation = reconstructed_matrix.corr()
-        #print(term_correlation)
-
-       #print("correlation calculated")
 
         current_term = self.stem_word(root.strip().lower())
-
-        #print(current_term)
-
-        #print("stem_dict", self.stem_dict)
 
         candidates = term_correlation[current_term][term_correlation[current_term] > 0]
         
@@ -270,41 +233,9 @@ class TagGenerator:
 
         set_summary_tags = candidates[current_term].iloc[0:min(len(candidates), self.semantic_field_size)].index.to_list()
 
-        #print(candidates, set_summary_tags)
-
-
-        #set_summary_tags = []
-
-        #for i in range(self.semantic_field_size - 1):
-        #    set_summary_tags.append(current_term)
-
-        #    candidates = term_correlation[current_term][term_correlation[current_term] > 0]
-
-        #    if len(candidates) == 0:
-        #        print("No more candidates")
-        #        break
-
-        #    candidates = pd.DataFrame(candidates).sort_values(by=current_term, axis=0, ascending=False)
-        #    print(candidates, set_summary_tags)
-
-        #    next_term = None
-
-        #    for index, row in candidates.iterrows():
-        #        if index not in set_summary_tags:
-        #            next_term = index
-        #            break
-
-        #    if (next_term != current_term) and (next_term is not None):
-        #        current_term = next_term
-        #    else:
-        #        break
-
-        #print("end get_set_summary_tags_method_1")
-
         return set_summary_tags
 
     def get_set_summary_tags_method_2(self, document_abstract_tags):
-        #print("get_set_summary_tags_method_2")
         occurrence_count = {}
 
         for document_tags in document_abstract_tags:
@@ -315,15 +246,11 @@ class TagGenerator:
                     occurrence_count[tag] += 1
 
         set_summary_tags = sorted(occurrence_count, key=occurrence_count.get, reverse=True)
-        #print("get_set_summary_tags_method_2", set_summary_tags)
-        #print("get_set_summary_tags_method_2", occurrence_count)
         return set_summary_tags[:min(self.semantic_field_size, len(set_summary_tags))]
 
     def expand_document_tags(self, document_abstract_tags, max_additions):
-        #print("expand_document_tags")
         document_abstract_tags_with_additions = []
         for document_tags in document_abstract_tags:
-            #print("document_tags", document_tags)
             additions = [self.get_synonyms(self.reverse_stem(tag), max_additions) for tag in document_tags] 
             additions = list(itertools.chain.from_iterable(additions))
             additions = [self.stem_word(word) for word in additions] # to avoid problems while unstemming everything
@@ -331,8 +258,6 @@ class TagGenerator:
             document_abstract_tags_with_additions.append(
                 list(set(document_tags + additions))
             )
-
-        #print("expand_document_tags", document_abstract_tags_with_additions)
 
         return document_abstract_tags_with_additions
 
@@ -343,9 +268,7 @@ class TagGenerator:
 
         if method == 1:
             root = self.stem_word(root, include=False)
-            if root not in self.stem_dict:#list(itertools.chain.from_iterable(self.stem_dict.values())):
-                #print(root, self.stem_dict.values())
-                #raise Exception("Root term \"%s\" not found." % str(root))
+            if root not in self.stem_dict:
                 return []
 
             return self.get_set_summary_tags_method_1(root)
@@ -371,17 +294,14 @@ class TagGenerator:
     def generate(self, documents, method=2, root=None, expand_doc_tags = False, max_additions = 0):
         self.preprocess_documents(documents)
         document_abstract_tags = self.get_document_abstract_tags()
-        #print("document_abstract_tags", document_abstract_tags)
 
         if (method == 2) and expand_doc_tags:
-            #print("expand_doc_tags")
             if max_additions < 0:
                 raise Exception("'max_additions' can't be negative")
 
             document_abstract_tags = self.expand_document_tags(document_abstract_tags, max_additions)
             
         set_summary_tags = self.get_set_summary_tags(method, root, document_abstract_tags)
-        #print("set_summary_tags", set_summary_tags)
 
         document_differential_tags = self.get_differential_tags(method, document_abstract_tags, set_summary_tags)
 
@@ -389,19 +309,14 @@ class TagGenerator:
         set_summary_tags = self.unstem([set_summary_tags])[0]
         document_differential_tags = self.unstem(document_differential_tags)
 
-        #print(self.stem_dict)
-
         return document_abstract_tags, set_summary_tags, document_differential_tags
 
     def retrieve_word_frequency(self, document_tags, document_number):
-        #print("retrieve_word_frequency", document_tags)
         document_word_frequency = {}
         expansion_tags = []
         max_frequency = 0
         min_frequency = 0
         document_line = self.doc_terms_matrix.iloc[document_number]
-
-        #print("retrieve_word_frequency", document_tags, document_number)
 
         if len(document_tags) == 0:
             return {}
@@ -427,7 +342,6 @@ class TagGenerator:
         return document_word_frequency
 
     def retrieve_word_frequency_per_document(self, tag_lists):
-        #print("retrieve_word_frequency_per_document", tag_lists, len(tag_lists))
         results = []
 
         for i in range(len(tag_lists)):
@@ -442,8 +356,6 @@ class TagGenerator:
         max_frequency = 0
         min_frequency = 0
         expansion_tags = []
-
-        #print("retrieve_set_word_frequency", tags)
 
         if len(tags) == 0:
             return {}
@@ -497,7 +409,6 @@ class TagGenerator:
             wordcloud_object = None
         ):
 
-        #print("1")
         document_abstract_tags, set_summary_tags, document_differential_tags = self.generate(
             documents, 
             method, 
@@ -506,82 +417,17 @@ class TagGenerator:
             max_additions = max_additions
         )
 
-        #print("2")
         if generate_atc: # atc = abstract tag cloud
-            #print("document_abstract_tags")
             document_abstract_tags = self.retrieve_word_frequency_per_document(document_abstract_tags)
             self.create_tag_cloud_image(document_abstract_tags, "document_abstract_tags", outputdir, max_tags, word_cloud = wordcloud_object)
-            #print("generate_tag_cloud document_abstract_tags", document_abstract_tags)
 
-        #print("3")
-        #print("set_summary_tags")
         set_summary_tags = self.retrieve_set_word_frequency(set_summary_tags)
-        #print("document_differential_tags")
-        #print("4")
         document_differential_tags = self.retrieve_word_frequency_per_document(document_differential_tags)
-        #print("generate_tag_cloud set_summary_tags", set_summary_tags)
-        #print("generate_tag_cloud document_differential_tags", document_differential_tags)
 
-        #print("5")
         self.create_tag_cloud_image([set_summary_tags], "set_summary_tags", outputdir, max_tags, word_cloud = wordcloud_object)
-        #print("6")
         self.create_tag_cloud_image(document_differential_tags, "document_differential_tags", outputdir, max_tags, word_cloud = wordcloud_object)
 
         if generate_atc:
             return document_abstract_tags, set_summary_tags, document_differential_tags
         else:
             return set_summary_tags, document_differential_tags
-
-
-
-
-        
-
-
-#stemmed, words, inverted_list = TagGenerator().preprocess("It was a warm morning, with no clouds in the sky, when a thunder struck Guilherme's head. How was that possible? That's simple. It was just Thor saying hello. And, yes, Thor is simply a troll and is always on some cloud, waiting for an opportunity to perform some pranks. He is a trolly prankster.")
-#print(stemmed)
-#print(words)
-#print(inverted_list)
-
-#a, b, c = TagGenerator(semantic_field_size=40, stemmer = "porter").generate([
-#    "It was a warm morning, with no clouds in the sky, when a thunder struck Guilherme's head. How was that possible? That's simple. It was just Thor saying hello. And, yes, Thor is simply a troll and is always on some cloud, waiting for an opportunity to perform some pranks. He is a trolly prankster.",
-#    "Guilherme is a post grad student at Federal University of Rio de Janeiro (UFRJ). He currently lives in Praça Seca, Rio de Janeiro, and is 30 years old.",
-#    " Earth. The world we live in. It is our home, and the home of Guilherme Caeiro de Mattos, an post grad student who lives in country called Brazil. Specifically in a city called Rio de Janeiro, that is hot as hell.",
-#    "It is a saying commonly told among practitioners of martial arts. It says \"健全なる魂は健全なる精神と健全なる肉体に宿る\"."
-#], 1, "rio", expand_doc_tags=True, max_hypernyms = 2)
-
-
-#print(a)
-#print(b)
-#print(c)
-
-#TagGenerator(semantic_field_size=40, stemmer = "porter").generate_tag_cloud([
-#    "It was a warm morning, with no clouds in the sky, when a thunder struck Guilherme's head. How was that possible? That's simple. It was just Thor saying hello. And, yes, Thor is simply a troll and is always on some cloud, waiting for an opportunity to perform some pranks. He is a trolly prankster.",
-#    "Guilherme is a post grad student at Federal University of Rio de Janeiro (UFRJ). He currently lives in Praça Seca, Rio de Janeiro, and is 30 years old.",
-#    " Earth. The world we live in. It is our home, and the home of Guilherme Caeiro de Mattos, an post grad student who lives in country called Brazil. Specifically in a city called Rio de Janeiro, that is hot as hell.",
-#    "It is a saying commonly told among practitioners of martial arts. It says \"健全なる魂は健全なる精神と健全なる肉体に宿る\"."
-#], 1, "rio", expand_doc_tags=True, max_hypernyms = 1,outputdir="outputs")#, wordcloud_object = WordCloud(width=1000, height=1000, max_words=10))
-
-
-
-
-#dataset = [
-#    "It was a warm morning, with no clouds in the sky, when a thunder struck Guilherme's head. How was that possible? That's simple. It was just Thor saying hello. And, yes, Thor is simply a troll and is always on some cloud, waiting for an opportunity to perform some pranks. He is a trolly prankster.",
-#    "Guilherme is a post grad student at Federal University of Rio de Janeiro (UFRJ). He currently lives in Praça Seca, Rio de Janeiro, and is 30 years old.",
-#    " Earth. The world we live in. It is our home, and the home of Guilherme Caeiro de Mattos, an post grad student who lives in country called Brazil. Specifically in a city called Rio de Janeiro, that is hot as hell.",
-#    "It is a saying commonly told among practitioners of martial arts. It says \"健全なる魂は健全なる精神と健全なる肉体に宿る\"."
-#]
-
-#test = TagGenerator(
-#    semantic_field_size=40, 
-#    stemmer = "porter", 
-#    generate_bigrams=True,
-#    use_tfidf=True
-#)
-#test.generate_tag_cloud(
-#    dataset, 
-#    2, 
-#    root="", 
-#    expand_doc_tags=True, 
-#    max_additions = 5
-#)
