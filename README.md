@@ -51,6 +51,8 @@ set_summary, differential = TagGenerator(
 
 Further information about the supported parameters can be found [here](https://github.com/GuilhermeCaeiro/gtaglib/wiki/Documentation).
 
+A report describing GTAGLIB's functionalities can be found [here](https://github.com/GuilhermeCaeiro/gtaglib/blob/main/results/Final_ver_GTAGLIB__a_library_to_generate_tags_and_tag_clouds.pdf).
+
 ## References
 
 [1] G. Xexeo, F. Morgado, and P. Fiuza, “Differential tag clouds: Highlighting particular features in documents,” in 2009 IEEE/WIC/ACM International Joint Conference on Web Intelligence and Intelligent Agent Technology, vol. 3, 2009, pp. 129–132.
