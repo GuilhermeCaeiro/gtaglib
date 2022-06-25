@@ -2,7 +2,7 @@
 
 This is the repository for the library GTAGLIB, that attempts to implement the algorithms of [1] and [2] to generate tags and tag clouds.
 
-Please notice that this library is in a very, very early version and, as of the current version 0.1, it has issues.
+Please notice that this library is in a very, very early version and, as of the current version 0.1, it has [issues](https://github.com/GuilhermeCaeiro/gtaglib/issues/1).
 
 ## Installation
 
