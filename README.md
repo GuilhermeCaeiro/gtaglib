@@ -25,6 +25,8 @@ python setup.py install
 In order to use this library, you have two option. One is to use it just to generate abstract, differential and set summary tags:
 
 ```
+from gtaglib.generator import TagGenerator
+
 abstract, set_summary, differential = TagGenerator(
     semantic_field_size=40, 
     stemmer = "porter", 
@@ -36,6 +38,8 @@ abstract, set_summary, differential = TagGenerator(
 And the other is to use it to generate tag clouds:
 
 ```
+from gtaglib.generator import TagGenerator
+
 set_summary, differential = TagGenerator(
     semantic_field_size=40, 
     stemmer="porter", 
