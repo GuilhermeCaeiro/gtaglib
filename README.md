@@ -49,7 +49,7 @@ set_summary, differential = TagGenerator(
 )
 ```
 
-Further information about the supported parameters can be found [here](http://example.com/).
+Further information about the supported parameters can be found [here]([http://example.com/](https://github.com/GuilhermeCaeiro/gtaglib/wiki/Documentation)).
 
 ## References
 
