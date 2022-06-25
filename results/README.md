@@ -1,3 +1,3 @@
 ## Dataset
 
-Te dataset can be found [here](https://github.com/LIAAD/KeywordExtractor-Datasets#fao30)
+The dataset can be found [here](https://github.com/LIAAD/KeywordExtractor-Datasets#fao30).
